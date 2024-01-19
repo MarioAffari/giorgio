@@ -8,10 +8,13 @@ const debug = createDebug('bot:dev');
 const PORT = (process.env.PORT && parseInt(process.env.PORT, 10)) || 3000;
 const VERCEL_URL = `${process.env.VERCEL_URL}`;
 
+// Assuming you have a list of user IDs
+const userIds = [622499087];
+
 const production = async (
   req: VercelRequest,
   res: VercelResponse,
-  bot: Telegraf<Context<Update>>
+  bot: Telegraf<any>,
 ) => {
   debug('Bot runs in production mode');
   debug(`setting webhook: ${VERCEL_URL}`);
@@ -28,11 +31,22 @@ const production = async (
     await bot.telegram.setWebhook(`${VERCEL_URL}/api`);
   }
 
-  if (req.method === 'POST') {
+  if (req.method === 'POST' && req.url === '/api/v1/callback') {
+    const data = req.body;
+
+    // Send the data as a message to all users
+    for (const userId of userIds) {
+      await bot.telegram.sendMessage(userId, JSON.stringify(data));
+    }
+
+    // Send a response
+    res.status(200).send({ status: 'success', data: 'Webhook received' });
+  } else if (req.method === 'POST') {
     await bot.handleUpdate(req.body as unknown as Update, res);
   } else {
     res.status(200).json('Listening to bot events...');
   }
   debug(`starting webhook on port: ${PORT}`);
 };
+
 export { production };
